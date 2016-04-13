@@ -105,6 +105,7 @@ typedef struct rocksdb_writeoptions_t    rocksdb_writeoptions_t;
 typedef struct rocksdb_universal_compaction_options_t rocksdb_universal_compaction_options_t;
 typedef struct rocksdb_livefiles_t     rocksdb_livefiles_t;
 typedef struct rocksdb_column_family_handle_t rocksdb_column_family_handle_t;
+typedef struct rocksdb_transaction_db_options_t rocksdb_transaction_db_options_t;
 
 /* DB operations */
 
@@ -194,6 +195,20 @@ extern ROCKSDB_LIBRARY_API void rocksdb_drop_column_family(
 
 extern ROCKSDB_LIBRARY_API void rocksdb_column_family_handle_destroy(
     rocksdb_column_family_handle_t*);
+
+extern ROCKSDB_LIBRARY_API rocksdb_transaction_db_options_t*
+  rocksdb_transaction_db_options_create();
+
+extern ROCKSDB_LIBRARY_API rocksdb_t*
+  rocksdb_open_transaction_db_column_families(
+      rocksdb_options_t* db_options,
+      rocksdb_transaction_db_options_t* transaction_db_options,
+      const char* name,
+      int num_column_families,
+      const char** column_family_names,
+      const rocksdb_options_t** column_family_options,
+      rocksdb_column_family_handle_t** column_family_handles,
+      char** errptr);
 
 extern ROCKSDB_LIBRARY_API void rocksdb_close(rocksdb_t* db);
 

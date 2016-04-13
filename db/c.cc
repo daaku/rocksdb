@@ -31,6 +31,7 @@
 #include "rocksdb/slice_transform.h"
 #include "rocksdb/table.h"
 #include "rocksdb/utilities/backupable_db.h"
+#include "rocksdb/utilities/transaction_db.h"
 #include "utilities/merge_operators.h"
 
 using rocksdb::Cache;
@@ -77,6 +78,8 @@ using rocksdb::BackupableDBOptions;
 using rocksdb::BackupInfo;
 using rocksdb::RestoreOptions;
 using rocksdb::CompactRangeOptions;
+using rocksdb::TransactionDB;
+using rocksdb::TransactionDBOptions;
 
 using std::shared_ptr;
 
@@ -107,6 +110,7 @@ struct rocksdb_logger_t          { shared_ptr<Logger>  rep; };
 struct rocksdb_cache_t           { shared_ptr<Cache>   rep; };
 struct rocksdb_livefiles_t       { std::vector<LiveFileMetaData> rep; };
 struct rocksdb_column_family_handle_t  { ColumnFamilyHandle* rep; };
+struct rocksdb_transaction_db_options_t  { TransactionDBOptions  rep; };
 
 struct rocksdb_compactionfiltercontext_t {
   CompactionFilter::Context rep;
@@ -635,6 +639,50 @@ void rocksdb_drop_column_family(
 void rocksdb_column_family_handle_destroy(rocksdb_column_family_handle_t* handle) {
   delete handle->rep;
   delete handle;
+}
+
+rocksdb_transaction_db_options_t*
+rocksdb_transaction_db_options_create() {
+  return new rocksdb_transaction_db_options_t;
+}
+
+rocksdb_t* rocksdb_open_transaction_db_column_families(
+    rocksdb_options_t* db_options,
+    rocksdb_transaction_db_options_t* transaction_db_options,
+    const char* name,
+    int num_column_families,
+    const char** column_family_names,
+    const rocksdb_options_t** column_family_options,
+    rocksdb_column_family_handle_t** column_family_handles,
+    char** errptr) {
+  std::vector<ColumnFamilyDescriptor> column_families;
+  for (int i = 0; i < num_column_families; i++) {
+    column_families.push_back(ColumnFamilyDescriptor(
+        std::string(column_family_names[i]),
+        ColumnFamilyOptions(column_family_options[i]->rep)));
+  }
+
+  TransactionDB* db;
+  std::vector<ColumnFamilyHandle*> handles;
+  Status status = TransactionDB::Open(
+      DBOptions(db_options->rep),
+      transaction_db_options->rep,
+      std::string(name),
+      column_families,
+      &handles,
+      &db);
+  if (SaveError(errptr, status)) {
+    return nullptr;
+  }
+
+  for (size_t i = 0; i < handles.size(); i++) {
+    rocksdb_column_family_handle_t* c_handle = new rocksdb_column_family_handle_t;
+    c_handle->rep = handles[i];
+    column_family_handles[i] = c_handle;
+  }
+  rocksdb_t* result = new rocksdb_t;
+  result->rep = db;
+  return result;
 }
 
 void rocksdb_put(

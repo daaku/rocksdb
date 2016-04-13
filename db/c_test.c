@@ -919,6 +919,37 @@ int main(int argc, char** argv) {
     }
   }
 
+  StartPhase("transactions");
+  {
+    // Create new empty database
+    rocksdb_close(db);
+    rocksdb_destroy_db(options, dbname, &err);
+    CheckNoError(err);
+
+    rocksdb_options_destroy(options);
+    options = rocksdb_options_create();
+    rocksdb_options_set_create_if_missing(options, 1);
+
+    rocksdb_transaction_db_options_t* tx_db_options =
+      rocksdb_transaction_db_options_create();
+    rocksdb_options_t* cf_options = rocksdb_options_create();
+
+    const char* cf_names[1] = {"default"};
+    const rocksdb_options_t* cf_opts[1] = {cf_options};
+    rocksdb_column_family_handle_t* cf_handles[1];
+    db = rocksdb_open_transaction_db_column_families(
+        options, tx_db_options, dbname, 1, cf_names, cf_opts, cf_handles, &err);
+    CheckNoError(err);
+
+    StartPhase("put");
+    rocksdb_put(db, woptions, "foo", 3, "hello", 5, &err);
+    CheckNoError(err);
+    CheckGet(db, roptions, "foo", "hello");
+
+    rocksdb_column_family_handle_destroy(cf_handles[0]);
+    rocksdb_options_destroy(cf_options);
+  }
+
   StartPhase("cleanup");
   rocksdb_close(db);
   rocksdb_options_destroy(options);
